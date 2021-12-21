@@ -165,6 +165,8 @@ void game_of_life(int noProcesses, int processId){
     int i, j, upper;
     /*
     
+    ========== Divisão de linhas =============
+
     p0     (0) -> (n/3)
     p1     (n/3) -> (2n/3)
     p2     (2n/3) -> (n)
@@ -173,6 +175,8 @@ void game_of_life(int noProcesses, int processId){
         processId * N / noProcesses 
     até
         (processId+1) * N / noProcesses
+
+    ==========================================
 
     */
     
@@ -185,7 +189,6 @@ void game_of_life(int noProcesses, int processId){
     for (i = processId * N / noProcesses; i < upper; i++){
 
         //nesse momento somente 1 th
-
 
         for (j = 0; j < N; j++){
             //aplicar as regras do jogo da vida
@@ -243,6 +246,7 @@ int main (int argc, char** argv){
     int cont = 0;
     int processId; /* rank (ID) dos processos */
     int noProcesses; /* Número de processos */
+    MPI_Status status;
 
     inicia_grids_zero();
 
@@ -281,6 +285,41 @@ int main (int argc, char** argv){
             printf("\n");
         }*/
         //printf("VIVOS: %d\n", count_LiveCells());
+
+        if(processId == 0){ //primeiro processo
+            // preenche a tabela
+            for (j = 0; j < N; j ++){
+                if(j < N / noProcesses){
+                    // responsabilidade do Proc.0 mesmo
+                    
+                }else{
+                    // Solicita a linha j (bloqueia até receber).
+                    int* row;
+                    MPI_Recv(row, N, MPI_INT, MPI_ANY_SOURCE, j, MPI_COMM_WORLD, &status);
+                }
+
+            }
+            // Transmite a tabela para os outros (noProcesses - 1) Processos
+            MPI_Send(buf, count, datatype, dest, tag, MPI_COMM_WORLD);
+
+        }else{ //demais processos
+        
+            // int MPI_Send(void *data_to_send, int send_count, MPI_Datatype send_type, 
+            //  int destination_ID, int tag, MPI_Comm comm); 
+
+            // data_to_send: variable of a C type that corresponds to the send_type supplied below
+            // send_count: number of data elements to be sent (nonnegative int)
+            // send_type: datatype of the data to be sent (one of the MPI datatype handles)
+            // destination_ID: process ID of destination (int)
+            // tag: message tag (int)
+            // comm: communicator (handle) 
+            for (j = 0)
+            MPI_Send(buf, count, datatype, dest, tag, MPI_COMM_WORLD);
+
+            MPI_Recv(buf, count, datatype, src, tag, MPI_COMM_WORLD, status);
+        }
+
+
         game_of_life(noProcesses, processId);
         //getchar(); //para fazer o for esperar por um enter
     }
@@ -289,6 +328,11 @@ int main (int argc, char** argv){
     cont = count_LiveCells ();
 
     clock_gettime(CLOCK_MONOTONIC, &tend);
+
+
+    if (processId == 0) {
+        MPI_Finalize();
+    }
 
     printf("VIVOS: %d\n", cont);
     printf("CORES: %d\n", cores);
@@ -306,8 +350,6 @@ int main (int argc, char** argv){
     }
 */
     // Termina os processos em execução
-    MPI_Finalize();
+
     return 0;
 }
-//zicamemo jovens joviais
-//todos saudem os poderes de jah

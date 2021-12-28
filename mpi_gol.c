@@ -2,13 +2,28 @@
 #include <stdlib.h>
 #include <time.h>
 #include <mpi.h>
+#include <unistd.h>
 
-#define N 50
+#define N 10
 #define itera_max 2000
 #define cores 2
 
-int grid [N][N];
+//int grid [N][N];
+int **grid;
 int new_grid[N][N];
+
+
+int** alloc_2d_int(int rows, int cols) {
+    int *data = (int *)malloc(rows*cols*sizeof(int));
+    int **array= (int **)malloc(rows*sizeof(int*));
+    for (int i=0; i<rows; i++)
+        array[i] = &(data[cols*i]);
+
+    return array;
+}
+
+
+
 
 void inicia_grids_zero(){
     int i, j;
@@ -31,16 +46,16 @@ void geracao_inicial(){
     grid[lin+2][col+2] = 1;
      
     //R-pentomino
-    lin =10; col = 30;
+    /*lin =10; col = 30;
     grid[lin  ][col+1] = 1;
     grid[lin  ][col+2] = 1;
     grid[lin+1][col  ] = 1;
     grid[lin+1][col+1] = 1;
-    grid[lin+2][col+1] = 1;
+    grid[lin+2][col+1] = 1;*/
     
 }
 
-int getNeighbors(int table[N][N], int i, int j){
+int getNeighbors(int **table, int i, int j){
     int numAliveNeighbors = 0;
 
     // Up
@@ -180,11 +195,12 @@ void game_of_life(int noProcesses, int processId){
 
     */
     
-    if(processId == noProcesses){
+    if(processId == noProcesses - 1){
         upper = N;
     }else{    
         upper = ((processId + 1) * N / noProcesses);
     }
+
 
     for (i = processId * N / noProcesses; i < upper; i++){
 
@@ -248,6 +264,7 @@ int main (int argc, char** argv){
     int noProcesses; /* Número de processos */
     MPI_Status status;
 
+    grid = alloc_2d_int(N,N);
     inicia_grids_zero();
 
     geracao_inicial();
@@ -267,9 +284,15 @@ int main (int argc, char** argv){
     struct timespec tstart={0,0}, tend={0,0};
     clock_gettime(CLOCK_MONOTONIC, &tstart);
 
+    int start_row = start_row = processId * (N / noProcesses);
+
+    printf("indice[%d] = %d\n", processId, processId*(N / noProcesses));
+
+
     // Executa iterações do Game of Life
     for (vida = 0; vida < itera_max; vida++){
-        /*
+        printf("Geração %d | Processo %d\n", vida, processId);
+        
         for (i = 0; i < N; i++){
             for (j = 0; j < N; j++){
 
@@ -283,10 +306,10 @@ int main (int argc, char** argv){
                 }
             }
             printf("\n");
-        }*/
+        }
         //printf("VIVOS: %d\n", count_LiveCells());
 
-        if(processId == 0){ //primeiro processo
+        /*if(processId == 0){ //primeiro processo
             // preenche a tabela
             for (j = 0; j < N; j ++){
                 if(j < N / noProcesses){
@@ -295,12 +318,12 @@ int main (int argc, char** argv){
                 }else{
                     // Solicita a linha j (bloqueia até receber).
                     int* row;
-                    MPI_Recv(row, N, MPI_INT, MPI_ANY_SOURCE, j, MPI_COMM_WORLD, &status);
+                    //MPI_Recv(row, N, MPI_INT, MPI_ANY_SOURCE, j, MPI_COMM_WORLD, &status);
                 }
 
             }
             // Transmite a tabela para os outros (noProcesses - 1) Processos
-            MPI_Send(buf, count, datatype, dest, tag, MPI_COMM_WORLD);
+            //MPI_Send(buf, count, datatype, dest, tag, MPI_COMM_WORLD);
 
         }else{ //demais processos
         
@@ -317,10 +340,61 @@ int main (int argc, char** argv){
             MPI_Send(buf, count, datatype, dest, tag, MPI_COMM_WORLD);
 
             MPI_Recv(buf, count, datatype, src, tag, MPI_COMM_WORLD, status);
-        }
-
+        }*/
+     
 
         game_of_life(noProcesses, processId);
+
+        if ( N % noProcesses == 0 ){
+            // divisão igualitária
+            MPI_Allgather(&(grid[start_row][0]),
+                N*(N / noProcesses),
+                MPI_INT,
+                &(grid[0][0]),
+                N*(N / noProcesses),
+                MPI_INT,
+                MPI_COMM_WORLD
+            );
+            printf("\n");
+        }
+        else{
+            if(processId != noProcesses - 1){
+                int N_i = (noProcesses - 1) * (N / noProcesses); 
+                int noProc_i = noProcesses - 1;
+
+                MPI_Allgather(&(grid[start_row][0]),
+                    N_i*(N_i / noProc_i),
+                    MPI_INT,
+                    &(grid[0][0]),
+                    N_i*(N_i / noProc_i),
+                    MPI_INT,
+                    MPI_COMM_WORLD
+                );
+                printf("\n");
+            }
+
+            MPI_Barrier(MPI_COMM_WORLD);
+            printf("[proc. %d] Fim do Allgather \n", processId);            
+
+            MPI_Bcast(
+                &(grid[(noProcesses - 1) * (N / noProcesses)][0]),
+                N * (N - (noProcesses - 1) * (N / noProcesses)),
+                MPI_INT,
+                noProcesses - 1,
+                MPI_COMM_WORLD
+            );
+
+            printf("[proc. %d] Fim do broadcast \n", processId);            
+            if(processId == 0){
+                MPI_Send(&(grid[0][0]), N*N, MPI_INT, noProcesses - 1, 0, MPI_COMM_WORLD);
+            }else if(processId != (noProcesses - 1)){
+                // ultimo processo (pode ter numero diferente de linhas)
+                MPI_Recv(&(grid[0][0]), N*N, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            printf("[proc. %d] Fim do send / recv \n", processId);            
+        }
+        //sleep(5);
         //getchar(); //para fazer o for esperar por um enter
     }
 
@@ -329,16 +403,18 @@ int main (int argc, char** argv){
 
     clock_gettime(CLOCK_MONOTONIC, &tend);
 
+    free(grid[0]);
+    free(grid);
 
-    if (processId == 0) {
-        MPI_Finalize();
-    }
+
 
     printf("VIVOS: %d\n", cont);
     printf("CORES: %d\n", cores);
     printf("TEMPO: %.5f segundos\n\n",
            ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) -
            ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+
+    MPI_Finalize();
     
 
 /*

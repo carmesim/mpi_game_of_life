@@ -358,23 +358,85 @@ int main (int argc, char** argv){
             printf("\n");
         }
         else{
+            int color;
+            int key;
             if(processId != noProcesses - 1){
+                    color = 0;
+                    key = processId;
+            }else{
+                    color = 1;
+                    key = processId;
+            }
+             
+            // Cria comunicador que exclui o último processo
+            MPI_Comm Comm_separa_ultimo;
+            MPI_Comm_split(MPI_COMM_WORLD, color, key, &Comm_separa_ultimo);
+
+            if(color == 0){
                 int N_i = (noProcesses - 1) * (N / noProcesses); 
                 int noProc_i = noProcesses - 1;
 
                 MPI_Allgather(&(grid[start_row][0]),
-                    N_i*(N_i / noProc_i),
+                    N*(N_i / noProc_i),
                     MPI_INT,
                     &(grid[0][0]),
-                    N_i*(N_i / noProc_i),
+                    N*(N_i / noProc_i),
                     MPI_INT,
-                    MPI_COMM_WORLD
+                    Comm_separa_ultimo
                 );
                 printf("\n");
             }
 
             MPI_Barrier(MPI_COMM_WORLD);
             printf("[proc. %d] Fim do Allgather \n", processId);            
+            
+            // =============  Debug =====================
+            int upper;
+            if(processId == noProcesses - 1){
+                upper = N;
+            }else{    
+                upper = ((processId + 1) * N / noProcesses);
+            }
+            sleep(2*processId);
+            printf("Pedaço do processo %d: \n", processId);
+            for (i = processId * N / noProcesses; i < upper; i++){
+                for (j = 0; j < N; j++){
+                    if (grid[i][j] == 1){
+                        printf("\033[1;31m");
+                        printf("%d", grid[i][j]);
+                        printf("\033[0m");
+                    }
+                    else{
+                        printf("\e[0;32m");
+                        printf("%d", grid[i][j]);
+                        printf("\033[0m");
+                    }
+                }
+                printf("\n");
+            }
+            printf("\n");
+
+
+            if(processId == 0 ){
+                for (i = 0; i < N; i++){
+                    for (j = 0; j < N; j++){
+
+                        if (grid[i][j] == 1){
+                            printf("\033[1;31m");
+                            printf("%d", grid[i][j]);
+                            printf("\033[0m");
+                        }
+                        else{
+                            printf("\e[0;34m");
+                            printf("%d", grid[i][j]);
+                            printf("\033[0m");
+                        }
+                    }
+                    printf("\n");
+                }
+            }
+
+            // =============  Debug =====================
 
             MPI_Bcast(
                 &(grid[(noProcesses - 1) * (N / noProcesses)][0]),
@@ -385,16 +447,18 @@ int main (int argc, char** argv){
             );
 
             printf("[proc. %d] Fim do broadcast \n", processId);            
+
             if(processId == 0){
                 MPI_Send(&(grid[0][0]), N*N, MPI_INT, noProcesses - 1, 0, MPI_COMM_WORLD);
-            }else if(processId != (noProcesses - 1)){
+            }else if(processId == (noProcesses - 1)){
                 // ultimo processo (pode ter numero diferente de linhas)
                 MPI_Recv(&(grid[0][0]), N*N, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
             }
+            printf("Processo %d passou ! viva \n", processId);
             MPI_Barrier(MPI_COMM_WORLD);
             printf("[proc. %d] Fim do send / recv \n", processId);            
         }
-        //sleep(5);
+        sleep(50);
         //getchar(); //para fazer o for esperar por um enter
     }
 
@@ -407,6 +471,7 @@ int main (int argc, char** argv){
     free(grid);
 
 
+    MPI_Finalize();
 
     printf("VIVOS: %d\n", cont);
     printf("CORES: %d\n", cores);
@@ -414,7 +479,6 @@ int main (int argc, char** argv){
            ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) -
            ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
 
-    MPI_Finalize();
     
 
 /*

@@ -196,7 +196,7 @@ void game_of_life(int noProcesses, int processId){
     */
     
     if(processId == noProcesses - 1){
-        upper = N;
+        upper = N
     }else{    
         upper = ((processId + 1) * N / noProcesses);
     }

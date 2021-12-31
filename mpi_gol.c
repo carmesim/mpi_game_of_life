@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <math.h>
 
-#define N 12
+#define N 10
 #define itera_max 2000
 #define cores 2
 
@@ -178,7 +178,8 @@ int getNeighbors(int **table, int i, int j){
 // Lógica do Game of Life
 void game_of_life(int noProcesses, int processId){
 
-	int i, j, upper, lower;
+	int i, j, upper, lower, chunk;
+
 	/*
 	
 	========== Divisão de linhas =============
@@ -201,14 +202,23 @@ void game_of_life(int noProcesses, int processId){
 
 	//if ((N % noProcesses) == 0){ // divisao inteira
 
-		lower = processId * floor((N / noProcesses));
+		//nova abordagem usando chunks
 
-		if(processId == noProcesses - 1){
+		//objetivo desse for e calcular o chunk
+
+		chunk = ceil(((float) N) / noProcesses);
+
+		lower = chunk * processId;
+
+		upper = lower + chunk;
+
+		if (upper > N){ 
 			upper = N;
-		}else{    
-			upper = ((processId + 1) * floor(N / noProcesses));
 		}
+		
 
+		printf("LOWER: %d\n", lower);
+		printf("UPPER: %d\n", upper);
 
 
 		for (i = lower; i < upper; i++){
@@ -400,15 +410,22 @@ int main (int argc, char** argv){
 			printf("[proc. %d] Fim do Allgather \n", processId);            
 			
 			// =============  Debug =====================
-			int upper;
-			if(processId == noProcesses - 1){
+			int upper, lower, chunk;
+			
+			chunk = ceil(((float) N) / noProcesses);
+
+			lower = chunk * processId;
+
+			upper = lower + chunk;
+
+			if (upper > N){ 
 				upper = N;
-			}else{    
-				upper = ((processId + 1) * N / noProcesses);
 			}
+
+
 			sleep(2*processId);
 			printf("Pedaço do processo %d: \n", processId);
-			for (i = processId * N / noProcesses; i < upper; i++){
+			for (i = lower; i < upper; i++){
 				for (j = 0; j < N; j++){
 					if (grid[i][j] == 1){
 						printf("\033[1;31m");

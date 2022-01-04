@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <math.h>
 
-#define N 2048
+#define N 100
 #define itera_max 2000
 
 #define RED_ANSI     "\x1b[31m" 

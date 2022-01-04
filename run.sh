@@ -1,2 +1,7 @@
 #!/bin/bash
-mpicc mpi_gol.c -lm -O3 && mpirun --use-hwthread-cpus -np $1 a.out
+if [[ $1 > 4 ]] 
+then
+    mpicc mpi_gol.c -lm -O3 && mpirun --use-hwthread-cpus --oversubscribe -np $1 a.out
+else
+    mpicc mpi_gol.c -lm -O3 && mpirun --use-hwthread-cpus -np $1 a.out
+fi

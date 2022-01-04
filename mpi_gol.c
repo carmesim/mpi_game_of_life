@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <math.h>
 
-#define N 10
+#define N 2048
 #define itera_max 2000
 
 #define RED_ANSI     "\x1b[31m" 
@@ -44,7 +44,7 @@ void inicia_grids_zero(){
 
 void geracao_inicial(){
 	//GLIDER
-	int lin = 1, col = 3;
+	int lin = 1, col = 1;
 	grid[lin  ][col+1] = 1;
 	grid[lin+1][col+2] = 1;
 	grid[lin+2][col  ] = 1;
